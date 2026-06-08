@@ -1,31 +1,28 @@
 import { useState, useMemo } from "react";
 
 export const INITIAL_FILTERS = {
-  month: "All",
-  driverName: "All",
-  vehicleNumber: "All",
-  vehicleType: "All",
-  vendor: "All",
-  project: "All",
-  sites: "All",
+  month: [],
+  driverName: [],
+  vehicleNumber: [],
+  vehicleType: [],
+  vendor: [],
+  project: [],
+  sites: [],
 };
 
 export function useFilters(data = []) {
   const [filters, setFilters] = useState(INITIAL_FILTERS);
 
-  // ✅ SAFE DATA HANDLING
   const safeData = Array.isArray(data) ? data : [];
 
-  // Compute unique options for each filter field
+  // 🔥 OPTIONS (dynamic like Excel)
   const filterOptions = useMemo(() => {
     const unique = (field) => {
       const vals = [
-        ...new Set(
-          safeData.map((r) => r?.[field]).filter(Boolean)
-        ),
+        ...new Set(safeData.map((r) => r?.[field]).filter(Boolean)),
       ].sort();
 
-      return ["All", ...vals];
+      return vals;
     };
 
     return {
@@ -39,25 +36,39 @@ export function useFilters(data = []) {
     };
   }, [safeData]);
 
-  // Apply filters to raw data
+  // 🔥 FILTER ENGINE (MULTI SELECT LOGIC)
   const filteredData = useMemo(() => {
     return safeData.filter((row) => {
-      return Object.entries(filters).every(([key, val]) => {
-        if (val === "All") return true;
-        return row?.[key] === val;
+      return Object.entries(filters).every(([key, selectedValues]) => {
+        if (!selectedValues || selectedValues.length === 0) return true;
+
+        return selectedValues.includes(row?.[key]);
       });
     });
   }, [safeData, filters]);
 
+  // 🔥 SET FILTER (multi-select toggle support)
   const setFilter = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+    setFilters((prev) => {
+      const current = prev[key] || [];
+
+      const exists = current.includes(value);
+
+      return {
+        ...prev,
+        [key]: exists
+          ? current.filter((v) => v !== value)
+          : [...current, value],
+      };
+    });
   };
 
   const resetFilters = () => setFilters(INITIAL_FILTERS);
 
-  const activeFilterCount = Object.values(filters).filter(
-    (v) => v !== "All"
-  ).length;
+  const activeFilterCount = Object.values(filters).reduce(
+    (acc, arr) => acc + (arr.length > 0 ? 1 : 0),
+    0
+  );
 
   return {
     filters,
