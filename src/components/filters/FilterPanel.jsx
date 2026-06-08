@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 
 const FILTER_CONFIG = [
@@ -22,17 +22,24 @@ export function FilterPanel({
   const [collapsed, setCollapsed] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
 
+  const ref = useRef();
+
+  // 🔥 close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const toggleValue = (key, value) => {
     const current = filters[key] || [];
 
-    let updated;
-    if (current.includes(value)) {
-      updated = current.filter((v) => v !== value);
-    } else {
-      updated = [...current, value];
-    }
-
-    setFilter(key, updated);
+    setFilter(key, value); // important: hook already handles toggle logic
   };
 
   const isSelected = (key, value) => {
@@ -40,7 +47,7 @@ export function FilterPanel({
   };
 
   return (
-    <div className="card p-4">
+    <div className="card p-4" ref={ref}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <button
@@ -78,7 +85,7 @@ export function FilterPanel({
       {!collapsed && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
           {FILTER_CONFIG.map(({ key, label }) => {
-            const options = filterOptions[key] || ["All"];
+            const options = filterOptions[key] || [];
 
             return (
               <div key={key} className="relative">
@@ -86,13 +93,17 @@ export function FilterPanel({
                   {label}
                 </label>
 
-                {/* Dropdown Button */}
+                {/* Button */}
                 <button
                   disabled={loading}
                   onClick={() =>
                     setOpenDropdown(openDropdown === key ? null : key)
                   }
-                  className="filter-select text-left flex justify-between items-center"
+                  className={`filter-select text-left flex justify-between items-center ${
+                    (filters[key] || []).length > 0
+                      ? "border-fleet-400 bg-fleet-50 text-fleet-700 font-medium"
+                      : ""
+                  }`}
                 >
                   <span>
                     {(filters[key] || []).length > 0
@@ -102,24 +113,34 @@ export function FilterPanel({
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </button>
 
-                {/* Dropdown Menu */}
+                {/* Dropdown */}
                 {openDropdown === key && (
-                  <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+                  <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 overflow-auto">
                     {options.map((opt) => {
-                      if (opt === "All") return null;
+                      if (!opt) return null;
+
+                      const selected = isSelected(key, opt);
 
                       return (
-                        <label
+                        <div
                           key={opt}
-                          className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer"
+                          onClick={() => setFilter(key, opt)}
+                          className={`flex items-center gap-2 px-3 py-2 text-xs cursor-pointer transition
+                            ${selected ? "bg-blue-100 text-blue-700 font-medium" : "hover:bg-slate-50"}
+                          `}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isSelected(key, opt)}
-                            onChange={() => toggleValue(key, opt)}
-                          />
+                          <div
+                            className={`w-4 h-4 border rounded flex items-center justify-center
+                              ${selected ? "bg-blue-500 border-blue-500" : "border-slate-300"}
+                            `}
+                          >
+                            {selected && (
+                              <span className="text-white text-[10px]">✔</span>
+                            )}
+                          </div>
+
                           {opt}
-                        </label>
+                        </div>
                       );
                     })}
                   </div>

@@ -15,14 +15,16 @@ export function useFilters(data = []) {
 
   const safeData = Array.isArray(data) ? data : [];
 
-  // 🔥 OPTIONS (dynamic like Excel)
+  // 🔥 OPTIONS (Excel-style unique values)
   const filterOptions = useMemo(() => {
     const unique = (field) => {
-      const vals = [
-        ...new Set(safeData.map((r) => r?.[field]).filter(Boolean)),
+      return [
+        ...new Set(
+          safeData
+            .map((r) => r?.[field])
+            .filter((v) => v !== null && v !== undefined && v !== "")
+        ),
       ].sort();
-
-      return vals;
     };
 
     return {
@@ -36,18 +38,22 @@ export function useFilters(data = []) {
     };
   }, [safeData]);
 
-  // 🔥 FILTER ENGINE (MULTI SELECT LOGIC)
+  // 🔥 FILTER ENGINE (SAFE + MULTI SELECT)
   const filteredData = useMemo(() => {
+    if (!safeData.length) return [];
+
     return safeData.filter((row) => {
       return Object.entries(filters).every(([key, selectedValues]) => {
         if (!selectedValues || selectedValues.length === 0) return true;
 
-        return selectedValues.includes(row?.[key]);
+        const value = row?.[key];
+
+        return selectedValues.includes(value);
       });
     });
   }, [safeData, filters]);
 
-  // 🔥 SET FILTER (multi-select toggle support)
+  // 🔥 TOGGLE FILTER VALUE
   const setFilter = (key, value) => {
     setFilters((prev) => {
       const current = prev[key] || [];
@@ -63,12 +69,13 @@ export function useFilters(data = []) {
     });
   };
 
+  // 🔥 RESET
   const resetFilters = () => setFilters(INITIAL_FILTERS);
 
-  const activeFilterCount = Object.values(filters).reduce(
-    (acc, arr) => acc + (arr.length > 0 ? 1 : 0),
-    0
-  );
+  // 🔥 ACTIVE COUNT (correct logic)
+  const activeFilterCount = Object.values(filters).filter(
+    (arr) => arr.length > 0
+  ).length;
 
   return {
     filters,
