@@ -10,8 +10,7 @@ export function useFleetData() {
 
   const fetchData = useCallback(async () => {
     try {
-      const url =
-        `https://docs.google.com/spreadsheets/d/${config.SHEET_ID}/gviz/tq?tqx=out:json`;
+      const url = `https://docs.google.com/spreadsheets/d/${config.SHEET_ID}/gviz/tq?tqx=out:json`;
 
       const res = await fetch(url);
       const text = await res.text();
@@ -21,12 +20,21 @@ export function useFleetData() {
       const rows = json?.table?.rows || [];
       const cols = json?.table?.cols || [];
 
-      // 🔥 SAFE HEADERS CLEANING
+      // 🔥 CLEAN HEADERS (robust)
       const headers = cols.map((c) =>
-        (c?.label || "").toString().trim().replace(/\s+/g, " ")
+        (c?.label || "")
+          .toString()
+          .trim()
+          .replace(/\s+/g, " ")
+          .toLowerCase()
       );
 
-      const colMap = config.COLUMN_MAP;
+      const colMap = Object.fromEntries(
+        Object.entries(config.COLUMN_MAP).map(([k, v]) => [
+          k.toLowerCase(),
+          v,
+        ])
+      );
 
       const parsed = rows
         .map((row) => {
@@ -50,11 +58,9 @@ export function useFleetData() {
 
           row.c?.forEach((cell, i) => {
             const header = headers[i];
-
             if (!header) return;
 
             const fieldName = colMap[header];
-
             if (!fieldName) return;
 
             const value = cell?.v ?? "";
@@ -84,7 +90,7 @@ export function useFleetData() {
 
           return record;
         })
-        .filter((r) => r); // 🔥 REMOVE EMPTY ROWS
+        .filter((r) => r && r.driverName); // 🔥 IMPORTANT SAFETY FILTER
 
       setData(parsed);
       setIsDemo(false);

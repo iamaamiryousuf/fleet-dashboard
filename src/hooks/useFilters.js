@@ -15,12 +15,24 @@ export function useFilters(data = []) {
 
   const safeData = Array.isArray(data) ? data : [];
 
-  // 🔥 OPTIONS (Excel-style unique values)
+  // 🔥 STEP 1: APPLY FILTERS (BASE DATA)
+  const baseFilteredData = useMemo(() => {
+    if (!safeData.length) return [];
+
+    return safeData.filter((row) => {
+      return Object.entries(filters).every(([key, selectedValues]) => {
+        if (!selectedValues || selectedValues.length === 0) return true;
+        return selectedValues.includes(row?.[key]);
+      });
+    });
+  }, [safeData, filters]);
+
+  // 🔥 STEP 2: CASCADING OPTIONS (Excel-style)
   const filterOptions = useMemo(() => {
     const unique = (field) => {
       return [
         ...new Set(
-          safeData
+          baseFilteredData
             .map((r) => r?.[field])
             .filter((v) => v !== null && v !== undefined && v !== "")
         ),
@@ -36,28 +48,15 @@ export function useFilters(data = []) {
       project: unique("project"),
       sites: unique("sites"),
     };
-  }, [safeData]);
+  }, [baseFilteredData]);
 
-  // 🔥 FILTER ENGINE (SAFE + MULTI SELECT)
-  const filteredData = useMemo(() => {
-    if (!safeData.length) return [];
+  // 🔥 STEP 3: FINAL OUTPUT DATA
+  const filteredData = baseFilteredData;
 
-    return safeData.filter((row) => {
-      return Object.entries(filters).every(([key, selectedValues]) => {
-        if (!selectedValues || selectedValues.length === 0) return true;
-
-        const value = row?.[key];
-
-        return selectedValues.includes(value);
-      });
-    });
-  }, [safeData, filters]);
-
-  // 🔥 TOGGLE FILTER VALUE
+  // 🔥 TOGGLE FILTER (multi-select)
   const setFilter = (key, value) => {
     setFilters((prev) => {
       const current = prev[key] || [];
-
       const exists = current.includes(value);
 
       return {
@@ -69,10 +68,10 @@ export function useFilters(data = []) {
     });
   };
 
-  // 🔥 RESET
+  // 🔥 RESET ALL
   const resetFilters = () => setFilters(INITIAL_FILTERS);
 
-  // 🔥 ACTIVE COUNT (correct logic)
+  // 🔥 ACTIVE COUNT
   const activeFilterCount = Object.values(filters).filter(
     (arr) => arr.length > 0
   ).length;
